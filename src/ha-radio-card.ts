@@ -252,6 +252,24 @@ export class HaRadioCard extends LitElement {
     }
   }
 
+  /**
+   * Reflect the theme onto the HOST element.
+   *
+   * The theme rules are `:host([data-theme="…"])`, which matches
+   * <ha-radio-card> itself — NOT the inner <ha-card>. Setting the attribute on
+   * the inner card (as an earlier version did) meant no theme block ever
+   * matched and every theme silently rendered as Classic.
+   *
+   * Host is also the right place regardless: the --rad-* tokens then inherit to
+   * everything in the shadow root, including the equalizer bars.
+   */
+  protected override willUpdate(): void {
+    const theme = this._radio?.theme ?? "classic";
+    if (this.getAttribute("data-theme") !== theme) {
+      this.setAttribute("data-theme", theme);
+    }
+  }
+
   private async _fetch(): Promise<void> {
     if (!this.hass) return;
     try {
@@ -363,11 +381,10 @@ export class HaRadioCard extends LitElement {
   protected override render(): TemplateResult | typeof nothing {
     if (!this._config || !this.hass) return nothing;
 
-    const theme = this._radio?.theme ?? "classic";
     const playing = this._isPlaying;
 
     return html`
-      <ha-card data-theme=${theme} style=${`--rad-eq-state:${playing ? "running" : "paused"}`}>
+      <ha-card style=${`--rad-eq-state:${playing ? "running" : "paused"}`}>
         ${this._error ? html`<div class="err">${this._error}</div>` : nothing}
         ${this._radio && !this._radio.ready
           ? html`<div class="err">HA Radio integration is not ready yet.</div>`
