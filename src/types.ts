@@ -43,6 +43,8 @@ export interface HaRadioCardConfig extends LovelaceCardConfig {
   show_equalizer?: boolean;
   /** Hide the target picker (useful on a single-room dashboard). */
   show_target_picker?: boolean;
+  /** Hide the scrolling "Playing: …" ticker. */
+  show_ticker?: boolean;
 }
 
 export interface Station {

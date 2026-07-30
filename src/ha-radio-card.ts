@@ -8,7 +8,7 @@ import type {
   RadioTarget,
 } from "./types";
 
-const CARD_VERSION = "0.1.0";
+const CARD_VERSION = "0.2.0";
 
 // eslint-disable-next-line no-console
 console.info(`%c HA-RADIO-CARD %c ${CARD_VERSION} `, "color:#fff;background:#03a9f4", "color:#03a9f4;background:#fff");
@@ -115,6 +115,58 @@ export class HaRadioCard extends LitElement {
         animation-play-state: var(--rad-eq-state, paused);
       }
 
+      /* --- ticker --- */
+      .ticker {
+        overflow: hidden;
+        white-space: nowrap;
+        background: var(--rad-surface);
+        border: var(--rad-border);
+        border-radius: 6px;
+        padding: 5px 0;
+        /* Fade both edges so text enters and leaves rather than being chopped. */
+        -webkit-mask-image: linear-gradient(
+          to right,
+          transparent 0,
+          #000 5%,
+          #000 95%,
+          transparent 100%
+        );
+        mask-image: linear-gradient(
+          to right,
+          transparent 0,
+          #000 5%,
+          #000 95%,
+          transparent 100%
+        );
+      }
+      .ticker-track {
+        display: flex;
+        width: max-content;
+        will-change: transform;
+      }
+      .ticker-track.run {
+        animation: rad-marquee var(--rad-ticker-period, 14s) linear infinite;
+      }
+      /* Idle: no animation at all, and a little inset so the text isn't jammed
+         against the fade. Freezing the animation mid-scroll instead would often
+         leave the text visibly cut in half. */
+      .ticker-track:not(.run) {
+        transform: none;
+        padding-left: 10px;
+      }
+      .ticker-track span {
+        font-size: 0.82rem;
+        letter-spacing: var(--rad-title-spacing);
+        color: var(--rad-fg);
+        /* Separator lives in the text, so the two copies are exactly equal
+           width and translateX(-50%) loops without a jump. */
+        padding-right: 3.5rem;
+      }
+      .ticker-track:not(.run) span + span {
+        /* The duplicate is only needed for the seamless loop. */
+        display: none;
+      }
+
       /* --- controls --- */
       .row {
         display: flex;
@@ -189,6 +241,19 @@ export class HaRadioCard extends LitElement {
         .eq i {
           animation: none;
           transform: scaleY(0.4);
+        }
+        /* Ticker text must stay readable, so stop scrolling and let it truncate
+           rather than leaving it parked at an arbitrary offset. */
+        .ticker-track.run {
+          animation: none;
+          padding-left: 10px;
+        }
+        .ticker-track.run span + span {
+          display: none;
+        }
+        .ticker-track.run span {
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
       }
     `,
@@ -277,11 +342,16 @@ export class HaRadioCard extends LitElement {
       this._radio = cfg;
       this._error = undefined;
 
-      if (cfg.version !== CARD_VERSION) {
-        // Not fatal, but the usual cause is a browser-cached bundle.
+      // Only a MAJOR difference implies an incompatible API contract. Card and
+      // integration are separate HACS repos and are allowed to drift on minor
+      // versions; warning on any difference just cries wolf (not least because
+      // the integration's version only updates on a full HA restart, since
+      // Python won't re-import a changed module on an entry reload).
+      const major = (v: string): string => (v || "0").split(".")[0];
+      if (major(cfg.version) !== major(CARD_VERSION)) {
         // eslint-disable-next-line no-console
         console.warn(
-          `ha-radio-card: card is ${CARD_VERSION} but the integration is ${cfg.version}. If something looks wrong, hard-reload to clear the cached bundle.`,
+          `ha-radio-card: card is ${CARD_VERSION} but the integration is ${cfg.version} — major versions differ, so they may be incompatible. Update both, then hard-reload to clear the cached bundle.`,
         );
       }
 
@@ -323,6 +393,34 @@ export class HaRadioCard extends LitElement {
     const url = this._station?.url;
     const playing = st.attributes["media_content_id"];
     return !url || typeof playing !== "string" ? st.state === "playing" : playing === url;
+  }
+
+  /**
+   * Ticker text.
+   *
+   * Deliberately reports what the *player* is doing, rather than repeating the
+   * station heading above it — so when idle the two lines differ usefully
+   * (heading = what's selected, ticker = what's actually happening).
+   *
+   * We set media_title to the station name ourselves for cast targets, so it's
+   * only worth showing when it's genuinely richer than that. Music Assistant
+   * resolves real programme/track names, which is where this pays off.
+   */
+  private get _tickerText(): string {
+    const station = this._stationName ?? "—";
+    if (!this._isPlaying) return `Stopped — ${station}`;
+
+    const attrs = this._target ? this.hass?.states[this._target]?.attributes : undefined;
+    const title = attrs?.["media_title"];
+    const artist = attrs?.["media_artist"];
+    let detail = "";
+    if (typeof title === "string" && title && title !== station) {
+      detail =
+        typeof artist === "string" && artist && artist !== "Live radio"
+          ? ` — ${artist} · ${title}`
+          : ` — ${title}`;
+    }
+    return `Playing: ${station}${detail}`;
   }
 
   // --- actions ------------------------------------------------------------
@@ -404,6 +502,17 @@ export class HaRadioCard extends LitElement {
           </div>
           ${this._showEqualizer ? this._renderEqualizer() : nothing}
         </div>
+
+        ${this._config.show_ticker === false
+          ? nothing
+          : html`
+              <div class="ticker">
+                <div class=${`ticker-track${playing ? " run" : ""}`}>
+                  <span>${this._tickerText}</span>
+                  <span aria-hidden="true">${this._tickerText}</span>
+                </div>
+              </div>
+            `}
 
         <div class="row">
           <button

@@ -39,6 +39,7 @@ export const themeStyles = css`
     --rad-bar-ease: cubic-bezier(0.4, 0, 0.2, 1);
     --rad-bar-gap: 3px;
     --rad-eq-anim: rad-bounce;
+    --rad-ticker-period: 14s;
     --rad-btn-bg: rgba(var(--rad-accent-rgb), 0.14);
     --rad-btn-fg: rgb(var(--rad-accent-rgb));
     --rad-border: none;
@@ -57,6 +58,7 @@ export const themeStyles = css`
     --rad-title-spacing: 0.08em;
     --rad-bar-radius: 0;
     --rad-bar-period: 1100ms;
+    --rad-ticker-period: 17s;
     --rad-border: 1px solid rgba(58, 44, 26, 0.25);
     --rad-btn-bg: rgba(178, 88, 34, 0.16);
   }
@@ -71,6 +73,7 @@ export const themeStyles = css`
     --rad-glow: 0 0 6px rgba(var(--rad-accent-rgb), 0.9),
       0 0 16px rgba(var(--rad-accent-rgb), 0.45);
     --rad-bar-period: 620ms;
+    --rad-ticker-period: 9s;
     --rad-bar-radius: 1px;
     --rad-title-transform: uppercase;
     --rad-title-spacing: 0.12em;
@@ -86,6 +89,7 @@ export const themeStyles = css`
     --rad-surface: rgba(96, 205, 255, 0.1);
     --rad-glow: 0 0 10px rgba(var(--rad-accent-rgb), 0.7);
     --rad-bar-period: 1500ms;
+    --rad-ticker-period: 20s;
     --rad-bar-ease: ease-in-out;
     --rad-bar-radius: 6px;
     --rad-eq-anim: rad-drift;
@@ -124,6 +128,7 @@ export const themeStyles = css`
     --rad-title-font: Georgia, "Times New Roman", serif;
     --rad-title-spacing: 0.06em;
     --rad-bar-period: 1700ms;
+    --rad-ticker-period: 24s;
     --rad-bar-radius: 1px;
     --rad-border: 1px solid rgba(74, 58, 34, 0.3);
     --rad-eq-anim: rad-drift;
@@ -155,6 +160,7 @@ export const themeStyles = css`
     --rad-surface: rgba(255, 255, 255, 0.16);
     --rad-glow: 0 0 8px rgba(var(--rad-accent-rgb), 0.6);
     --rad-bar-period: 750ms;
+    --rad-ticker-period: 11s;
     --rad-bar-radius: 999px;
     --rad-btn-bg: rgba(255, 255, 255, 0.22);
     --rad-btn-fg: #fff8f0;
@@ -191,6 +197,18 @@ export const equalizerStyles = css`
     }
     to {
       transform: scaleY(1);
+    }
+  }
+
+  /* Ticker. Translating a track that holds two identical copies of the text by
+     exactly -50% loops seamlessly with no jump. transform only, so it stays
+     GPU-composited like the bars. */
+  @keyframes rad-marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
     }
   }
 
