@@ -634,7 +634,7 @@ w.customCards.push({
   name: "HA Radio",
   description: "Internet radio with themed equalizer (companion to the HA Radio integration)",
   preview: true,
-  documentationURL: "http://192.168.2.6:3001/padlefot/ha_radio_card",
+  documentationURL: "https://github.com/padlefot/ha_radio_card",
   getEntitySuggestion: (_hass, entityId) =>
     entityId === "select.ha_radio_station" ? { config: { type: "custom:ha-radio-card" } } : null,
 });

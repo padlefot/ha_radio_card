@@ -1,6 +1,6 @@
 # HA Radio Card
 
-Dashboard card for the [`ha_radio`](http://192.168.2.6:3001/padlefot/ha_radio)
+Dashboard card for the [`ha_radio`](https://github.com/padlefot/ha_radio)
 integration: play/stop, station selection (dropdown plus prev/next arrows), a
 volume slider, a target picker, and a themed animated equalizer.
 
