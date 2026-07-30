@@ -1,6 +1,6 @@
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import { equalizerStyles, themeStyles } from "./themes";
+import { artStyles, equalizerStyles, themeStyles } from "./themes";
 import type {
   HaRadioCardConfig,
   HaRadioConfig,
@@ -8,7 +8,7 @@ import type {
   RadioTarget,
 } from "./types";
 
-const CARD_VERSION = "0.2.2";
+const CARD_VERSION = "0.3.0";
 
 // eslint-disable-next-line no-console
 console.info(`%c HA-RADIO-CARD %c ${CARD_VERSION} `, "color:#fff;background:#03a9f4", "color:#03a9f4;background:#fff");
@@ -34,6 +34,7 @@ export class HaRadioCard extends LitElement {
   public static override styles = [
     themeStyles,
     equalizerStyles,
+    artStyles,
     css`
       ha-card {
         background: var(--rad-bg);

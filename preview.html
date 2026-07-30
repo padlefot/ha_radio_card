@@ -1,0 +1,117 @@
+<!doctype html>
+<!--
+  Theme gallery — open this file directly in a browser.
+
+  Loads the real built bundle from dist/ and mounts one card per theme with a
+  stubbed `hass`, so every theme can be compared side by side without Home
+  Assistant. Also a cheap smoke test: if the bundle throws on load or a theme's
+  CSS is malformed, it shows up here rather than on a dashboard.
+
+  Each theme is rendered twice — playing and stopped — so the equalizer's
+  fade-out and the ticker's overflow behaviour are both visible.
+-->
+<meta charset="utf-8" />
+<title>HA Radio Card — theme gallery</title>
+<style>
+  body {
+    margin: 0;
+    padding: 24px;
+    background: #1c1f26;
+    color: #e8eaf0;
+    font: 14px/1.4 system-ui, sans-serif;
+  }
+  h1 { font-size: 18px; font-weight: 600; margin: 0 0 4px; }
+  p.sub { color: #98a0b0; margin: 0 0 24px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 22px;
+  }
+  .cell h2 {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #98a0b0;
+    margin: 0 0 8px;
+  }
+  .pair { display: flex; flex-direction: column; gap: 10px; }
+  .tag { font-size: 11px; color: #6b7385; }
+  /* Stand-in for HA's <ha-card>; the themes restyle it anyway. */
+  ha-card { display: flex; border-radius: 12px; }
+</style>
+
+<h1>HA Radio Card — theme gallery</h1>
+<p class="sub">Each theme shown playing (top) and stopped (bottom).</p>
+<div class="grid" id="grid"></div>
+
+<script type="module">
+  import "./dist/ha_radio_card.js";
+
+  const THEMES = [
+    "classic", "retro", "eighties", "spaceage", "transparent",
+    "transparent_dark", "ancient", "steampunk", "tropical", "arctic",
+  ];
+
+  const STATIONS = [
+    { name: "NRK P3", url: "s://p3", logo: null, mime: "audio/mpeg" },
+    { name: "NRK Jazz", url: "s://jazz", logo: null, mime: "audio/mpeg" },
+    { name: "Radio Revolt", url: "s://revolt", logo: null, mime: "audio/ogg" },
+  ];
+  const TARGETS = [
+    { entity_id: "media_player.tre_stuer_4", name: "Tre Stuer",
+      platform: "cast", supports_volume: true, is_group: true },
+    { entity_id: "media_player.kitchen_display", name: "Kitchen Display",
+      platform: "cast", supports_volume: true, is_group: false },
+  ];
+
+  const makeHass = (theme, playing) => ({
+    language: "en",
+    states: {
+      "select.ha_radio_station": {
+        entity_id: "select.ha_radio_station",
+        state: "NRK Jazz",
+        attributes: { options: STATIONS.map((s) => s.name), theme },
+      },
+      "media_player.tre_stuer_4": {
+        entity_id: "media_player.tre_stuer_4",
+        state: playing ? "playing" : "idle",
+        attributes: {
+          volume_level: 0.35,
+          media_content_id: playing ? "s://jazz" : "",
+          media_title: playing ? "NRK Jazz" : "",
+        },
+      },
+    },
+    callService: async () => {},
+    callWS: async () => ({
+      version: "0.3.0", ready: true, theme, default_volume: 0.35,
+      stations: STATIONS, targets: TARGETS,
+      current_station: "NRK Jazz",
+      current_target: "media_player.tre_stuer_4",
+      select_entity: "select.ha_radio_station",
+    }),
+    connection: { subscribeMessage: async () => async () => {} },
+  });
+
+  const grid = document.getElementById("grid");
+  for (const theme of THEMES) {
+    const cell = document.createElement("div");
+    cell.className = "cell";
+    cell.innerHTML = `<h2>${theme}</h2>`;
+    const pair = document.createElement("div");
+    pair.className = "pair";
+
+    for (const playing of [true, false]) {
+      const tag = document.createElement("div");
+      tag.className = "tag";
+      tag.textContent = playing ? "playing" : "stopped";
+      const card = document.createElement("ha-radio-card");
+      card.setConfig({ type: "custom:ha-radio-card" });
+      card.hass = makeHass(theme, playing);
+      pair.append(tag, card);
+    }
+    cell.append(pair);
+    grid.append(cell);
+  }
+</script>
