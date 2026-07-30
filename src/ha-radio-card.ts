@@ -8,7 +8,7 @@ import type {
   RadioTarget,
 } from "./types";
 
-const CARD_VERSION = "0.2.0";
+const CARD_VERSION = "0.2.1";
 
 // eslint-disable-next-line no-console
 console.info(`%c HA-RADIO-CARD %c ${CARD_VERSION} `, "color:#fff;background:#03a9f4", "color:#03a9f4;background:#fff");
@@ -24,6 +24,8 @@ export class HaRadioCard extends LitElement {
   @state() private _target?: string;
   @state() private _volume = 0.35;
   @state() private _error?: string;
+  /** Only marquee when the text genuinely doesn't fit — see _measureTicker. */
+  @state() private _tickerOverflows = false;
 
   private _unsub?: Promise<() => Promise<void>>;
   /** Bar phase offsets, generated once so the equalizer isn't a metronome. */
@@ -142,10 +144,12 @@ export class HaRadioCard extends LitElement {
       .ticker-track {
         display: flex;
         width: max-content;
-        will-change: transform;
       }
       .ticker-track.run {
         animation: rad-marquee var(--rad-ticker-period, 14s) linear infinite;
+        /* Only while actually animating: will-change permanently allocates a
+           GPU layer, which is wasteful on a card that is usually idle. */
+        will-change: transform;
       }
       /* Idle: no animation at all, and a little inset so the text isn't jammed
          against the fade. Freezing the animation mid-scroll instead would often
@@ -221,6 +225,20 @@ export class HaRadioCard extends LitElement {
       input[type="range"] {
         flex: 1 1 auto;
         min-width: 0;
+        /* Browsers give range inputs their own inline margins, which pushed the
+           track out of line with the selects above it. */
+        margin: 0;
+      }
+      /* Fixed-width icon box. An emoji glyph's advance width varies by platform
+         font, so letting it size itself made the slider start at a different x
+         than every other row. */
+      .volicon {
+        flex: 0 0 24px;
+        width: 24px;
+        text-align: center;
+        line-height: 1;
+        color: var(--rad-dim);
+        font-size: 1rem;
       }
       .vol {
         font-variant-numeric: tabular-nums;
@@ -282,8 +300,14 @@ export class HaRadioCard extends LitElement {
   }
 
   // getGridOptions, not the deprecated getLayoutOptions.
+  //
+  // rows MUST be "auto". This card's height is content-driven (title, ticker,
+  // two control rows, volume) and comes to far more than a few grid rows. A
+  // fixed row count under-allocates the grid cell, the card grows past it, and
+  // it then overlaps whatever follows in the section — including the edit-mode
+  // "add card" (+) button, and spilling over the section onto the background.
   public getGridOptions(): Record<string, unknown> {
-    return { columns: 12, rows: 3, min_columns: 6, min_rows: 3 };
+    return { columns: 12, rows: "auto", min_columns: 6 };
   }
 
   public override connectedCallback(): void {
@@ -332,6 +356,33 @@ export class HaRadioCard extends LitElement {
     const theme = this._radio?.theme ?? "classic";
     if (this.getAttribute("data-theme") !== theme) {
       this.setAttribute("data-theme", theme);
+    }
+  }
+
+  /**
+   * Decide whether the ticker needs to scroll at all.
+   *
+   * A marquee whose text is *shorter* than its container shows both copies at
+   * once and reads as a rendering glitch ("Norge   Playing: P4 Norge") rather
+   * than a ticker. So measure one copy against the container and only animate
+   * when it actually overflows.
+   *
+   * The separator padding is subtracted because it exists solely to space the
+   * two copies during the loop — it isn't part of the visible text.
+   */
+  protected override updated(): void {
+    this._measureTicker();
+  }
+
+  private _measureTicker(): void {
+    const box = this.renderRoot.querySelector<HTMLElement>(".ticker");
+    const span = this.renderRoot.querySelector<HTMLElement>(".ticker-track span");
+    if (!box || !span) return;
+    const sep = parseFloat(getComputedStyle(span).paddingRight) || 0;
+    const overflows = span.scrollWidth - sep > box.clientWidth;
+    if (overflows !== this._tickerOverflows) {
+      // Guarded so this can't loop: only a genuine change re-renders.
+      this._tickerOverflows = overflows;
     }
   }
 
@@ -507,7 +558,7 @@ export class HaRadioCard extends LitElement {
           ? nothing
           : html`
               <div class="ticker">
-                <div class=${`ticker-track${playing ? " run" : ""}`}>
+                <div class=${`ticker-track${playing && this._tickerOverflows ? " run" : ""}`}>
                   <span>${this._tickerText}</span>
                   <span aria-hidden="true">${this._tickerText}</span>
                 </div>
@@ -570,7 +621,13 @@ export class HaRadioCard extends LitElement {
             `}
 
         <div class="row">
-          <span aria-hidden="true">🔈</span>
+          <!-- Inline SVG rather than an emoji: renders identically everywhere and
+               occupies a known width, so the slider lines up with the rows above. -->
+          <span class="volicon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+              <path d="M3 10v4h3l4 4V6L6 10H3zm11.5 2a3.5 3.5 0 0 0-2-3.16v6.32A3.5 3.5 0 0 0 14.5 12z" />
+            </svg>
+          </span>
           <input
             type="range"
             min="0"
