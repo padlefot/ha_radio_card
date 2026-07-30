@@ -8,7 +8,7 @@ import type {
   RadioTarget,
 } from "./types";
 
-const CARD_VERSION = "0.2.1";
+const CARD_VERSION = "0.2.2";
 
 // eslint-disable-next-line no-console
 console.info(`%c HA-RADIO-CARD %c ${CARD_VERSION} `, "color:#fff;background:#03a9f4", "color:#03a9f4;background:#fff");
@@ -97,6 +97,14 @@ export class HaRadioCard extends LitElement {
         gap: var(--rad-bar-gap);
         height: 30px;
         flex: 0 0 auto;
+        /* Hidden unless playing. The element stays mounted and keeps its box,
+           so starting or stopping playback doesn't reflow the header — the
+           title just never jumps sideways. */
+        opacity: 0;
+        transition: opacity 240ms ease;
+      }
+      .eq.on {
+        opacity: 1;
       }
       .eq i {
         display: block;
@@ -256,6 +264,9 @@ export class HaRadioCard extends LitElement {
       /* The bars are decoration; motion-sensitive users get a static shape.
          HA provides no reduced-motion helper, so this is handled here. */
       @media (prefers-reduced-motion: reduce) {
+        .eq {
+          transition: none;
+        }
         .eq i {
           animation: none;
           transform: scaleY(0.4);
@@ -660,7 +671,7 @@ export class HaRadioCard extends LitElement {
     // the audio is decoded on the Chromecast, never in the browser).
     const amp = 0.35 + this._volume * 0.65;
     return html`
-      <div class="eq" aria-hidden="true">
+      <div class=${`eq${this._isPlaying ? " on" : ""}`} aria-hidden="true">
         ${this._phases.map(
           (p, i) => html`<i
             style=${`animation-delay:-${p * 12}ms;animation-duration:calc(var(--rad-bar-period) * ${(
