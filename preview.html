@@ -36,6 +36,16 @@
     margin: 0 0 8px;
   }
   .pair { display: flex; flex-direction: column; gap: 10px; }
+  /* The transparent themes only make sense over a real backdrop — judging them
+     against the page background would be judging nothing. */
+  .pair.backdrop {
+    padding: 12px;
+    border-radius: 14px;
+    background:
+      radial-gradient(60% 50% at 20% 10%, rgba(255,190,120,.55), transparent 70%),
+      radial-gradient(70% 60% at 85% 80%, rgba(90,140,200,.5), transparent 70%),
+      linear-gradient(160deg, #6b7f9e 0%, #3d4a63 55%, #23293a 100%);
+  }
   .tag { font-size: 11px; color: #6b7385; }
   /* Stand-in for HA's <ha-card>; the themes restyle it anyway. */
   ha-card { display: flex; border-radius: 12px; }
@@ -94,13 +104,23 @@
     connection: { subscribeMessage: async () => async () => {} },
   });
 
+  // ?theme=retro,tropical&w=520 — render a subset at a larger size, so detail
+  // in the artwork can actually be judged rather than guessed at.
+  const q = new URLSearchParams(location.search);
+  const only = q.get("theme")?.split(",").filter(Boolean);
+  const width = q.get("w");
+  if (width) {
+    document.getElementById("grid").style.gridTemplateColumns =
+      `repeat(auto-fill, minmax(${width}px, 1fr))`;
+  }
+
   const grid = document.getElementById("grid");
-  for (const theme of THEMES) {
+  for (const theme of only ?? THEMES) {
     const cell = document.createElement("div");
     cell.className = "cell";
     cell.innerHTML = `<h2>${theme}</h2>`;
     const pair = document.createElement("div");
-    pair.className = "pair";
+    pair.className = theme.startsWith("transparent") ? "pair backdrop" : "pair";
 
     for (const playing of [true, false]) {
       const tag = document.createElement("div");

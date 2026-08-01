@@ -8,12 +8,32 @@ import type {
   RadioTarget,
 } from "./types";
 
-const CARD_VERSION = "0.3.0";
+const CARD_VERSION = "0.4.0";
 
 // eslint-disable-next-line no-console
 console.info(`%c HA-RADIO-CARD %c ${CARD_VERSION} `, "color:#fff;background:#03a9f4", "color:#03a9f4;background:#fff");
 
 const DEFAULT_BARS = 7;
+
+// Inline SVG rather than the ⏮ ▶ ■ ⏭ characters. Emoji-class glyphs are drawn
+// by whichever font the OS picks, so they differ in size, baseline and colour
+// between platforms — and on some they arrive pre-coloured, ignoring the theme.
+// These inherit currentColor and have a fixed box, so buttons line up exactly.
+const icon = (path: string): TemplateResult =>
+  html`<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d=${path} />
+  </svg>`;
+
+const PLAY_ICON = icon("M8 5.5v13l11-6.5z");
+const STOP_ICON = icon("M7 7h10v10H7z");
+const SKIP_BACK = icon("M7 6h2.2v12H7zm10 0v12l-8.2-6z");
+const SKIP_FWD = icon("M17 6h-2.2v12H17zM7 6v12l8.2-6z");
+const VOL_ICON = icon(
+  "M3 10v4h3.2L11 18V6L6.2 10zm11.6 2a3.4 3.4 0 0 0-1.9-3.06v6.12A3.4 3.4 0 0 0 14.6 12z",
+);
+const CAST_ICON = icon(
+  "M2 17.5v3h3a3 3 0 0 0-3-3zm0-4v1.8a5.2 5.2 0 0 1 5.2 5.2H9A7 7 0 0 0 2 13.5zm0-4v1.8a9.2 9.2 0 0 1 9.2 9.2H13A11 11 0 0 0 2 9.5zM20 3H4a2 2 0 0 0-2 2v2h2V5h16v14h-6v2h6a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z",
+);
 
 @customElement("ha-radio-card")
 export class HaRadioCard extends LitElement {
@@ -42,8 +62,12 @@ export class HaRadioCard extends LitElement {
         font-family: var(--rad-font);
         border: var(--rad-border);
         border-radius: var(--rad-radius);
-        box-shadow: var(--rad-shadow);
-        padding: 14px 16px;
+        /* Theme accent glow (if any) layered over a shared elevation shadow,
+           rather than each theme inventing its own. */
+        box-shadow: var(--rad-shadow), var(--rad-shadow-md);
+        /* Bottom padding is a token: themes whose artwork runs along the bottom
+           edge widen it so a motif never sits under a control. */
+        padding: 16px var(--rad-pad-x, 18px) var(--rad-pad-bottom, 18px);
         display: flex;
         flex-direction: column;
         gap: 12px;
@@ -67,28 +91,79 @@ export class HaRadioCard extends LitElement {
         background: var(--rad-surface);
       }
 
-      .titles {
+      /* --- hero: the station name doubles as the station picker ----------- */
+      .pick {
+        position: relative;
         min-width: 0;
         flex: 1 1 auto;
+        border-radius: 8px;
+        padding: 2px 4px;
+        margin: -2px -4px;
+        transition: background-color 140ms;
       }
-
+      .pick:hover {
+        background: var(--rad-well);
+      }
+      /* The real focus ring belongs on the overlay select, but the select is
+         invisible — so surface its focus state on the thing the user sees. */
+      .pick:has(select:focus-visible) {
+        outline: 2px solid rgb(var(--rad-accent-rgb));
+        outline-offset: 1px;
+      }
       .station {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        min-width: 0;
         font-family: var(--rad-title-font);
         font-weight: var(--rad-title-weight);
         letter-spacing: var(--rad-title-spacing);
         text-transform: var(--rad-title-transform);
-        font-size: 1.05rem;
+        font-size: 1.35rem;
+        line-height: 1.2;
+      }
+      .station-name {
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .caret {
+        width: 10px;
+        height: 6px;
+        flex: 0 0 auto;
+        color: var(--rad-dim);
+        transition: transform 140ms;
+      }
+      .pick:hover .caret {
+        transform: translateY(1px);
+      }
+
+      .sub {
+        color: var(--rad-dim);
+        font-size: 0.68rem;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
       }
 
-      .sub {
-        color: var(--rad-dim);
-        font-size: 0.78rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+      /* Transparent, full-bleed native select: keeps the OS dropdown and all of
+         its keyboard/touch behaviour while the visible affordance is the title
+         itself. Nothing is drawn, so it can't fight the theme. */
+      select.overlay {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+        border: none;
+        padding: 0;
+        background: none;
+        box-shadow: none;
       }
 
       /* --- equalizer --- */
@@ -96,7 +171,7 @@ export class HaRadioCard extends LitElement {
         display: flex;
         align-items: flex-end;
         gap: var(--rad-bar-gap);
-        height: 30px;
+        height: 34px;
         flex: 0 0 auto;
         /* Hidden unless playing. The element stays mounted and keeps its box,
            so starting or stopping playback doesn't reflow the header — the
@@ -109,7 +184,7 @@ export class HaRadioCard extends LitElement {
       }
       .eq i {
         display: block;
-        width: 4px;
+        width: 5px;
         height: 100%;
         background: rgb(var(--rad-accent-rgb));
         box-shadow: var(--rad-glow);
@@ -130,10 +205,13 @@ export class HaRadioCard extends LitElement {
       .ticker {
         overflow: hidden;
         white-space: nowrap;
-        background: var(--rad-surface);
-        border: var(--rad-border);
-        border-radius: 6px;
-        padding: 5px 0;
+        /* A recessed well — inset shadow plus a top highlight — so it reads as
+           a display panel rather than a disabled text input. */
+        background: var(--rad-well);
+        border: 1px solid var(--rad-line);
+        border-radius: 8px;
+        box-shadow: var(--rad-inset);
+        padding: 6px 0;
         /* Fade both edges so text enters and leaves rather than being chopped. */
         -webkit-mask-image: linear-gradient(
           to right,
@@ -168,8 +246,9 @@ export class HaRadioCard extends LitElement {
         padding-left: 10px;
       }
       .ticker-track span {
-        font-size: 0.82rem;
-        letter-spacing: var(--rad-title-spacing);
+        font-family: var(--rad-ticker-font);
+        font-size: 0.76rem;
+        letter-spacing: 0.06em;
         color: var(--rad-fg);
         /* Separator lives in the text, so the two copies are exactly equal
            width and translateX(-50%) loops without a jump. */
@@ -180,81 +259,255 @@ export class HaRadioCard extends LitElement {
         display: none;
       }
 
-      /* --- controls --- */
-      .row {
+      /* --- transport ------------------------------------------------------
+         One control cluster: skip / play / skip, then volume on the same line.
+         Wraps rather than crushing the slider on a narrow card. */
+      .transport {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
+        flex-wrap: wrap;
+        row-gap: 12px;
       }
       button.icon {
-        border: none;
+        border: 1px solid transparent;
         cursor: pointer;
         background: var(--rad-btn-bg);
         color: var(--rad-btn-fg);
         border-radius: 999px;
-        width: 40px;
-        height: 40px;
-        font-size: 1.1rem;
-        line-height: 1;
+        width: 38px;
+        height: 38px;
+        padding: 0;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         flex: 0 0 auto;
-        transition: filter 150ms;
+        transition: filter 150ms, transform 120ms, box-shadow 150ms;
+      }
+      button.icon svg {
+        width: 20px;
+        height: 20px;
+      }
+      /* The primary is deliberately bigger, solid and elevated — it is the one
+         thing on the card you always want to hit first. */
+      button.icon.primary {
+        width: 52px;
+        height: 52px;
+        margin-right: 2px;
+        background: rgb(var(--rad-accent-rgb));
+        color: var(--rad-on-accent, #fff);
+        box-shadow: var(--rad-shadow-md), var(--rad-glow);
+      }
+      button.icon.primary svg {
+        width: 24px;
+        height: 24px;
       }
       button.icon:hover:not(:disabled) {
-        filter: brightness(1.15);
+        filter: brightness(1.12);
+        border-color: var(--rad-line-strong);
+      }
+      button.icon.primary:hover:not(:disabled) {
+        transform: scale(1.04);
+        border-color: transparent;
+      }
+      button.icon:active:not(:disabled) {
+        transform: scale(0.95);
+      }
+      button.icon:focus-visible {
+        outline: 2px solid rgb(var(--rad-accent-rgb));
+        outline-offset: 2px;
       }
       button.icon:disabled {
         opacity: 0.4;
         cursor: default;
       }
-      button.icon.wide {
-        width: auto;
-        padding: 0 16px;
-        gap: 6px;
-      }
 
-      select,
-      input[type="range"] {
-        font-family: inherit;
-        color: inherit;
-        accent-color: rgb(var(--rad-accent-rgb));
-      }
-      select {
-        flex: 1 1 auto;
-        min-width: 0;
-        background: var(--rad-surface);
-        color: var(--rad-fg);
-        border: var(--rad-border);
-        border-radius: 8px;
-        padding: 8px 10px;
-        font-size: 0.9rem;
-      }
-      input[type="range"] {
-        flex: 1 1 auto;
-        min-width: 0;
-        /* Browsers give range inputs their own inline margins, which pushed the
-           track out of line with the selects above it. */
-        margin: 0;
-      }
-      /* Fixed-width icon box. An emoji glyph's advance width varies by platform
-         font, so letting it size itself made the slider start at a different x
-         than every other row. */
-      .volicon {
-        flex: 0 0 24px;
-        width: 24px;
-        text-align: center;
-        line-height: 1;
-        color: var(--rad-dim);
-        font-size: 1rem;
-      }
       .vol {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        /* Takes the rest of the transport line, but drops to its own row
+           before the slider gets too short to be usable. */
+        flex: 1 1 150px;
+        min-width: 130px;
+        margin-left: 4px;
+      }
+      .volicon {
+        display: inline-flex;
+        color: var(--rad-dim);
+        flex: 0 0 auto;
+      }
+      .volicon svg {
+        width: 18px;
+        height: 18px;
+      }
+      .volval {
+        font-size: 0.72rem;
         font-variant-numeric: tabular-nums;
         color: var(--rad-dim);
-        font-size: 0.78rem;
-        min-width: 2.5em;
+        flex: 0 0 auto;
+        min-width: 2.4em;
         text-align: right;
+      }
+
+      /* --- footer: where it plays ----------------------------------------- */
+      .foot {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--rad-dim);
+        margin-top: -2px;
+      }
+      .foot-icon {
+        display: inline-flex;
+        flex: 0 0 auto;
+      }
+      .foot-icon svg {
+        width: 15px;
+        height: 15px;
+      }
+
+      /* --- controls -------------------------------------------------------
+         Native <select> and <input type=range> are the single biggest reason a
+         themed card still reads as "an HTML form with a picture behind it":
+         they bring OS chrome, a grey UA background and — on macOS — a system
+         blue slider that fights every palette. Both are reset with
+         appearance:none and rebuilt from theme tokens. */
+      select {
+        appearance: none;
+        -webkit-appearance: none;
+        flex: 1 1 auto;
+        min-width: 0;
+        font: inherit;
+        font-size: 0.88rem;
+        color: var(--rad-fg);
+        background-color: var(--rad-well);
+        /* Custom chevron, so no UA arrow. currentColor can't be used inside a
+           data-URI, so it's drawn with a theme-independent stroke and tinted by
+           opacity instead. */
+        background-image: linear-gradient(
+            45deg,
+            transparent 50%,
+            currentColor 50%
+          ),
+          linear-gradient(135deg, currentColor 50%, transparent 50%);
+        background-position:
+          right 15px top 52%,
+          right 10px top 52%;
+        background-size:
+          5px 5px,
+          5px 5px;
+        background-repeat: no-repeat;
+        border: 1px solid var(--rad-line);
+        border-radius: 10px;
+        padding: 9px 30px 9px 12px;
+        cursor: pointer;
+        box-shadow: var(--rad-inset);
+        transition: border-color 140ms, box-shadow 140ms;
+      }
+      select:hover {
+        border-color: var(--rad-line-strong);
+      }
+      select:focus-visible {
+        outline: none;
+        border-color: rgb(var(--rad-accent-rgb));
+        box-shadow: var(--rad-inset), 0 0 0 3px rgba(var(--rad-accent-rgb), 0.28);
+      }
+      /* The dropdown list itself is OS-rendered and cannot inherit the theme,
+         so give it explicit legible colours rather than leaving it to chance. */
+      select option {
+        background: var(--rad-menu-bg, #1d2027);
+        color: var(--rad-menu-fg, #f0f2f6);
+      }
+
+      /* Footer target picker: a line of text with a caret, not a second boxed
+         dropdown. Two stacked full-width selects were the main reason the card
+         read as a settings form. */
+      select.ghost {
+        background-color: transparent;
+        border-color: transparent;
+        box-shadow: none;
+        color: var(--rad-dim);
+        font-size: 0.78rem;
+        padding: 3px 20px 3px 4px;
+        background-position:
+          right 9px top 55%,
+          right 4px top 55%;
+        background-size:
+          4px 4px,
+          4px 4px;
+        flex: 0 1 auto;
+        width: auto;
+        max-width: 100%;
+      }
+      select.ghost:hover {
+        color: var(--rad-fg);
+        background-color: var(--rad-well);
+        border-color: transparent;
+      }
+
+      input[type="range"] {
+        appearance: none;
+        -webkit-appearance: none;
+        flex: 1 1 auto;
+        min-width: 0;
+        margin: 0;
+        height: 22px;
+        background: transparent;
+        cursor: pointer;
+      }
+      /* Filled portion is painted with a gradient stop driven by --rad-fill,
+         set inline from the current value — a track that only fills to the
+         thumb is what makes it read as a real control. */
+      input[type="range"]::-webkit-slider-runnable-track {
+        height: 6px;
+        border-radius: 999px;
+        background: linear-gradient(
+          90deg,
+          rgb(var(--rad-accent-rgb)) 0 var(--rad-fill, 35%),
+          var(--rad-well) var(--rad-fill, 35%) 100%
+        );
+        box-shadow: var(--rad-inset);
+      }
+      input[type="range"]::-moz-range-track {
+        height: 6px;
+        border-radius: 999px;
+        background: linear-gradient(
+          90deg,
+          rgb(var(--rad-accent-rgb)) 0 var(--rad-fill, 35%),
+          var(--rad-well) var(--rad-fill, 35%) 100%
+        );
+        box-shadow: var(--rad-inset);
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        appearance: none;
+        -webkit-appearance: none;
+        width: 16px;
+        height: 16px;
+        margin-top: -5px;
+        border-radius: 50%;
+        background: var(--rad-thumb, #fff);
+        border: 2px solid rgb(var(--rad-accent-rgb));
+        box-shadow: var(--rad-shadow-sm);
+        transition: transform 120ms;
+      }
+      input[type="range"]::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--rad-thumb, #fff);
+        border: 2px solid rgb(var(--rad-accent-rgb));
+        box-shadow: var(--rad-shadow-sm);
+      }
+      input[type="range"]:hover::-webkit-slider-thumb {
+        transform: scale(1.12);
+      }
+      input[type="range"]:focus-visible::-webkit-slider-thumb {
+        box-shadow: 0 0 0 4px rgba(var(--rad-accent-rgb), 0.3);
+      }
+      input[type="range"]:disabled {
+        cursor: default;
+        opacity: 0.45;
       }
 
       .err {
@@ -555,13 +808,31 @@ export class HaRadioCard extends LitElement {
           ${this._station?.logo
             ? html`<img class="logo" src=${this._station.logo} alt="" />`
             : nothing}
-          <div class="titles">
-            <div class="station">${this._stationName ?? "No stations configured"}</div>
-            <div class="sub">
-              ${this._targetObj
-                ? `${this._targetObj.name}${this._targetObj.is_group ? " · group" : ""}`
-                : "No target available"}
+          <!-- The station name IS the picker. A full-width <select> for
+               something the card already displays in full is pure duplication;
+               overlaying a transparent native select keeps the OS dropdown
+               (and its keyboard/mobile behaviour) while the visible control is
+               just the title with a caret. -->
+          <div class="pick">
+            <div class="station">
+              <span class="station-name"
+                >${this._stationName ?? "No stations configured"}</span
+              >
+              <svg class="caret" viewBox="0 0 10 6" aria-hidden="true">
+                <path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" />
+              </svg>
             </div>
+            <div class="sub">${playing ? "On air" : "Ready"}</div>
+            <select
+              class="overlay"
+              aria-label="Station"
+              .value=${this._stationName ?? ""}
+              @change=${(e: Event) => this._selectStation((e.target as HTMLSelectElement).value)}
+            >
+              ${(this._radio?.stations ?? []).map(
+                (s) => html`<option value=${s.name} ?selected=${s.name === this._stationName}>${s.name}</option>`,
+              )}
+            </select>
           </div>
           ${this._showEqualizer ? this._renderEqualizer() : nothing}
         </div>
@@ -577,22 +848,25 @@ export class HaRadioCard extends LitElement {
               </div>
             `}
 
-        <div class="row">
+        <!-- Transport is the anchor: a large solid primary flanked by two ghost
+             skip buttons, with volume on the same line so the card reads as one
+             control cluster rather than a stack of equal-weight form rows. -->
+        <div class="transport">
           <button
             class="icon"
             title="Previous station"
             ?disabled=${!this._radio?.stations.length}
             @click=${() => this._step(-1)}
           >
-            ⏮
+            ${SKIP_BACK}
           </button>
           <button
-            class="icon wide"
+            class="icon primary"
             title=${playing ? "Stop" : "Play"}
             ?disabled=${!this._target || !this._station}
             @click=${playing ? this._stop : this._play}
           >
-            ${playing ? "■" : "▶"}
+            ${playing ? STOP_ICON : PLAY_ICON}
           </button>
           <button
             class="icon"
@@ -600,24 +874,38 @@ export class HaRadioCard extends LitElement {
             ?disabled=${!this._radio?.stations.length}
             @click=${() => this._step(1)}
           >
-            ⏭
+            ${SKIP_FWD}
           </button>
-          <select
-            aria-label="Station"
-            .value=${this._stationName ?? ""}
-            @change=${(e: Event) => this._selectStation((e.target as HTMLSelectElement).value)}
-          >
-            ${(this._radio?.stations ?? []).map(
-              (s) => html`<option value=${s.name} ?selected=${s.name === this._stationName}>${s.name}</option>`,
-            )}
-          </select>
+
+          <div class="vol">
+            <!-- Inline SVG rather than an emoji: renders identically everywhere
+                 and occupies a known width, so the slider always lines up. -->
+            <span class="volicon" aria-hidden="true">${VOL_ICON}</span>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              aria-label="Volume"
+              .value=${String(this._volume)}
+              style=${`--rad-fill:${(this._volume * 100).toFixed(1)}%`}
+              ?disabled=${this._targetObj ? !this._targetObj.supports_volume : false}
+              @input=${this._onVolume}
+            />
+            <span class="volval">${Math.round(this._volume * 100)}%</span>
+          </div>
         </div>
 
+        <!-- Where it plays is a setting, not a transport control, so it sits at
+             the bottom as a borderless line rather than a second full-width
+             dropdown competing with the station. -->
         ${this._config.show_target_picker === false
           ? nothing
           : html`
-              <div class="row">
+              <div class="foot">
+                <span class="foot-icon" aria-hidden="true">${CAST_ICON}</span>
                 <select
+                  class="ghost"
                   aria-label="Target"
                   @change=${(e: Event) => {
                     this._target = (e.target as HTMLSelectElement).value;
@@ -631,27 +919,6 @@ export class HaRadioCard extends LitElement {
                 </select>
               </div>
             `}
-
-        <div class="row">
-          <!-- Inline SVG rather than an emoji: renders identically everywhere and
-               occupies a known width, so the slider lines up with the rows above. -->
-          <span class="volicon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-              <path d="M3 10v4h3l4 4V6L6 10H3zm11.5 2a3.5 3.5 0 0 0-2-3.16v6.32A3.5 3.5 0 0 0 14.5 12z" />
-            </svg>
-          </span>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
-            aria-label="Volume"
-            .value=${String(this._volume)}
-            ?disabled=${this._targetObj ? !this._targetObj.supports_volume : false}
-            @input=${this._onVolume}
-          />
-          <span class="vol">${Math.round(this._volume * 100)}%</span>
-        </div>
       </ha-card>
     `;
   }

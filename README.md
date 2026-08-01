@@ -1,8 +1,12 @@
 # HA Radio Card
 
 Dashboard card for the [`ha_radio`](https://github.com/padlefot/ha_radio)
-integration: play/stop, station selection (dropdown plus prev/next arrows), a
-volume slider, a target picker, and a themed animated equalizer.
+integration: play/stop, station selection, a volume slider, a target picker and
+a themed animated equalizer.
+
+The station name doubles as the station picker — click it to choose, or use the
+skip buttons either side of play. Everything is drawn from theme tokens, so no
+native form controls leak through.
 
 The integration is **required** — the card reads its stations, targets and theme
 from it over the websocket API.
