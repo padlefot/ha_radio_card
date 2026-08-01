@@ -84,9 +84,25 @@ npm install
 npm run lint     # tsc --noEmit
 npm run build    # rollup -> dist/ha_radio_card.js
 npm run watch
+
+# visual check: all ten themes, playing and stopped
+python3 -m http.server 8765   # then open preview.html
+#   preview.html?theme=retro,tropical&w=520  focuses a subset at a larger size
+# editor contract check (headless-friendly)
+#   open editor-test.html
 ```
 
-Lit 3 + TypeScript + Rollup. The card deliberately avoids HA's internal
-components (`ha-textfield` and friends were deprecated in 2026.4 and are being
-removed) and vendors a minimal `HomeAssistant` interface instead of depending on
-`custom-card-helpers`, which lags HA's types.
+Lit 3 + TypeScript + Rollup. The card vendors a minimal `HomeAssistant`
+interface rather than depending on `custom-card-helpers`, which lags HA's types,
+and avoids HA's deprecated internals (`ha-textfield`/`ha-select`, deprecated in
+2026.4). The editor uses `ha-form`, which is the component every third-party
+card builds on.
+
+The editor is wired with **`static getConfigElement()`**, not `getConfigForm()`
+— HA honours the latter only for its own built-in cards, and a custom card that
+offers just that shows "Visual editor not supported" while compiling perfectly.
+`editor-test.html` asserts that contract, including that `config-changed`
+escapes the shadow root; without that the dashboard silently never saves.
+
+`dist/` must stay a single file — HACS serves one bundle, so the editor is
+imported statically rather than lazily.

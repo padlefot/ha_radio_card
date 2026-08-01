@@ -1,5 +1,8 @@
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+// Static, not a dynamic import: HACS serves one file, and a dynamic import
+// makes rollup emit a second chunk that would never be fetched.
+import "./editor";
 import {
   THEME_OPTIONS,
   artStyles,
@@ -13,7 +16,7 @@ import type {
   RadioTarget,
 } from "./types";
 
-const CARD_VERSION = "0.5.0";
+const CARD_VERSION = "0.5.1";
 
 // eslint-disable-next-line no-console
 console.info(`%c HA-RADIO-CARD %c ${CARD_VERSION} `, "color:#fff;background:#03a9f4", "color:#03a9f4;background:#fff");
@@ -569,53 +572,19 @@ export class HaRadioCard extends LitElement {
   }
 
   /**
-   * Visual editor schema.
+   * Visual editor.
    *
-   * `getConfigForm` lets HA render the editor from an `ha-form` schema, so
-   * there is no editor element to write — and nothing that breaks when HA's
-   * internal components change. (`ha-textfield`/`ha-select` were deprecated in
-   * 2026.4; a hand-rolled editor built on them would already be dead.)
+   * MUST be getConfigElement, not getConfigForm. HA honours `getConfigForm`
+   * only for its own built-in cards; a custom card that offers just that shows
+   * "Visual editor not supported". See editor.ts.
    */
-  public static getConfigForm(): Record<string, unknown> {
-    return {
-      schema: [
-        {
-          name: "theme",
-          selector: {
-            select: { mode: "dropdown", options: THEME_OPTIONS },
-          },
-        },
-        {
-          name: "target",
-          selector: { entity: { domain: "media_player" } },
-        },
-        {
-          name: "",
-          type: "grid",
-          schema: [
-            { name: "show_equalizer", selector: { boolean: {} } },
-            { name: "show_ticker", selector: { boolean: {} } },
-            { name: "show_target_picker", selector: { boolean: {} } },
-            {
-              name: "bars",
-              selector: { number: { min: 3, max: 24, mode: "slider" } },
-            },
-          ],
-        },
-      ],
-      // ha-form falls back to the raw key when it can't resolve a translation,
-      // so labels are supplied here rather than shipping a UI full of
-      // show_target_picker.
-      computeLabel: (s: { name: string }): string =>
-        ({
-          theme: "Theme",
-          target: "Default speaker",
-          show_equalizer: "Show equalizer",
-          show_ticker: "Show ticker",
-          show_target_picker: "Show speaker picker",
-          bars: "Equalizer bars",
-        })[s.name] ?? s.name,
-    };
+  public static getConfigElement(): HTMLElement {
+    return document.createElement("ha-radio-card-editor");
+  }
+
+  /** Sensible starting point when the card is added from the picker. */
+  public static getStubConfig(): HaRadioCardConfig {
+    return { type: "custom:ha-radio-card" };
   }
 
   public getCardSize(): number {

@@ -1,0 +1,90 @@
+<!doctype html>
+<!--
+  Editor contract check — open directly, or dump it headless:
+
+    python3 -m http.server 8765 &
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+      --headless=new --disable-gpu --virtual-time-budget=4000 \
+      --dump-dom "http://localhost:8765/editor-test.html"
+
+  This exists because the failure it catches is invisible to tsc and to the
+  build: the card originally offered only `static getConfigForm()`, which HA
+  honours for its OWN cards but not for custom ones, so the dashboard showed
+  "Visual editor not supported" against a bundle that compiled cleanly.
+
+  Asserted here: the card exposes getConfigElement, the editor registers and
+  renders ha-form with the expected schema, config flows in, and
+  `config-changed` escapes the shadow root — without that last one the
+  dashboard silently never saves.
+-->
+<meta charset="utf-8" />
+<title>HA Radio Card — editor contract</title>
+<style>
+  body { font: 13px/1.6 ui-monospace, Menlo, monospace; padding: 24px;
+         background: #14171d; color: #e8eaf0; }
+  .ok { color: #6ee7a8; } .bad { color: #ff7a7a; }
+</style>
+<body>
+  <pre id="out">running…</pre>
+  <script type="module">
+    import "./dist/ha_radio_card.js";
+
+    const results = [];
+    const check = (name, pass, detail = "") =>
+      results.push({ name, pass, detail });
+
+    const card = customElements.get("ha-radio-card");
+    check("card registered", !!card);
+    check("exposes getConfigElement", typeof card.getConfigElement === "function");
+    check("exposes getStubConfig", typeof card.getStubConfig === "function");
+
+    const el = card.getConfigElement();
+    document.body.appendChild(el);
+    check("editor element registered", !!customElements.get(el.localName), el.localName);
+
+    // Minimal hass — the editor renders nothing without one.
+    el.hass = {
+      states: {}, language: "en",
+      callService: async () => {}, callWS: async () => ({}),
+      connection: { subscribeMessage: async () => async () => {} },
+    };
+    el.setConfig({ type: "custom:ha-radio-card", theme: "retro" });
+    await el.updateComplete;
+
+    const form = el.shadowRoot.querySelector("ha-form");
+    check("ha-form rendered", !!form);
+
+    const names = form
+      ? form.schema.flatMap((s) => (s.schema ? s.schema.map((x) => x.name) : [s.name]))
+      : [];
+    for (const want of ["theme", "target", "show_equalizer", "show_ticker",
+                        "show_target_picker", "bars"]) {
+      check(`schema has ${want}`, names.includes(want));
+    }
+    check("config reaches the form", form?.data?.theme === "retro");
+    check("every theme offered", form?.schema[0].selector.select.options.length >= 11);
+    check("labels are human", form?.computeLabel({ name: "show_target_picker" }) ===
+      "Show speaker picker");
+
+    // The event must be bubbles+composed or it dies inside the shadow root and
+    // the dashboard never persists a change.
+    let got = null;
+    document.addEventListener("config-changed", (e) => { got = e.detail.config; });
+    form?.dispatchEvent(new CustomEvent("value-changed", {
+      bubbles: true, composed: true,
+      detail: { value: { type: "custom:ha-radio-card", theme: "arctic", bars: 9 } },
+    }));
+    await new Promise((r) => setTimeout(r, 50));
+    check("config-changed escapes shadow root", !!got, JSON.stringify(got));
+    check("unedited keys survive", got?.type === "custom:ha-radio-card");
+
+    const failed = results.filter((r) => !r.pass).length;
+    document.getElementById("out").innerHTML =
+      results
+        .map((r) => `<span class="${r.pass ? "ok" : "bad"}">${r.pass ? "PASS" : "FAIL"}</span>  ` +
+                    `${r.name}${r.detail ? "  — " + r.detail : ""}`)
+        .join("\n") +
+      `\n\n${failed === 0 ? "all good" : failed + " FAILED"}`;
+    document.title = failed === 0 ? "editor: all good" : `editor: ${failed} FAILED`;
+  </script>
+</body>
