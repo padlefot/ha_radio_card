@@ -8,13 +8,13 @@ The station name doubles as the station picker — click it to choose, or use th
 skip buttons either side of play. Everything is drawn from theme tokens, so no
 native form controls leak through.
 
-The integration is **required** — the card reads its stations, targets and theme
-from it over the websocket API.
+The integration is **required** — the card reads its stations and targets from
+it over the websocket API.
 
 ## Configuration
 
-Almost nothing to configure, on purpose. Stations, targets and the **theme** all
-come from the integration, so the card stays a drop-in.
+Almost nothing to configure, on purpose. Stations and targets come from the
+integration, so the card stays a drop-in.
 
 ```yaml
 type: custom:ha-radio-card
@@ -22,20 +22,24 @@ type: custom:ha-radio-card
 
 | Option | Default | Notes |
 |---|---|---|
+| `theme` | from integration | Per-card theme. Leave unset to follow the integration's default. |
 | `target` | last used | Pre-select a media player, so a room dashboard opens ready to play. |
 | `show_target_picker` | `true` | Set `false` on a single-room dashboard. |
 | `show_equalizer` | `true` | Set `false` to hide the bars. |
 | `bars` | `7` | Equalizer bar count (3–24). |
 
-There is **no `theme` option**. The theme is set once in the integration and
-applies to every HA Radio card — that was a deliberate choice to keep the card
-config uncluttered. Setting `theme:` here logs a console warning rather than
-silently doing nothing.
+Everything is editable in the **visual editor** — no YAML required.
+
+The theme is **per card**: pick one in the card's editor, or leave it on *Use
+integration default* to follow the integration's setting. That way a dashboard
+that never touches it keeps a single global look, while one view can still be
+Retro and another Arctic.
 
 ## Themes
 
 Classic, Retro, 80s, Space Age, Transparent, Transparent Dark, Ancient,
-Steampunk, Tropical, Arctic. Chosen in the integration's options.
+Steampunk, Tropical, Arctic. Chosen per card, defaulting to the integration's
+setting.
 
 Classic inherits your HA theme, so it fits any dashboard. The Transparent pair
 drops the card background entirely — Transparent Dark also forces light text plus

@@ -1,6 +1,11 @@
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import { artStyles, equalizerStyles, themeStyles } from "./themes";
+import {
+  THEME_OPTIONS,
+  artStyles,
+  equalizerStyles,
+  themeStyles,
+} from "./themes";
 import type {
   HaRadioCardConfig,
   HaRadioConfig,
@@ -8,7 +13,7 @@ import type {
   RadioTarget,
 } from "./types";
 
-const CARD_VERSION = "0.4.0";
+const CARD_VERSION = "0.5.0";
 
 // eslint-disable-next-line no-console
 console.info(`%c HA-RADIO-CARD %c ${CARD_VERSION} `, "color:#fff;background:#03a9f4", "color:#03a9f4;background:#fff");
@@ -545,19 +550,72 @@ export class HaRadioCard extends LitElement {
   public setConfig(config: HaRadioCardConfig): void {
     if (!config) throw new Error("Invalid configuration");
 
-    // Theme is owned by the integration by design (one global look, no card
-    // clutter). Warn rather than silently ignoring it — an invisible no-op
-    // would just generate confused bug reports.
-    if ("theme" in config) {
+    // An unknown theme name would silently render as Classic, which reads as
+    // "themes are broken" rather than "that name is wrong" — so say so.
+    if (config.theme && !THEME_OPTIONS.some((t) => t.value === config.theme)) {
       // eslint-disable-next-line no-console
       console.warn(
-        "ha-radio-card: `theme` is not a card option. Set the theme in the HA Radio integration (Settings → Devices & Services → HA Radio → Configure); it applies to every HA Radio card.",
+        `ha-radio-card: unknown theme "${config.theme}". Falling back to the integration's theme. Valid values: ${THEME_OPTIONS.filter(
+          (t) => t.value,
+        )
+          .map((t) => t.value)
+          .join(", ")}`,
       );
     }
 
     this._config = config;
     if (config.target) this._target = config.target;
     this._phases = [];
+  }
+
+  /**
+   * Visual editor schema.
+   *
+   * `getConfigForm` lets HA render the editor from an `ha-form` schema, so
+   * there is no editor element to write — and nothing that breaks when HA's
+   * internal components change. (`ha-textfield`/`ha-select` were deprecated in
+   * 2026.4; a hand-rolled editor built on them would already be dead.)
+   */
+  public static getConfigForm(): Record<string, unknown> {
+    return {
+      schema: [
+        {
+          name: "theme",
+          selector: {
+            select: { mode: "dropdown", options: THEME_OPTIONS },
+          },
+        },
+        {
+          name: "target",
+          selector: { entity: { domain: "media_player" } },
+        },
+        {
+          name: "",
+          type: "grid",
+          schema: [
+            { name: "show_equalizer", selector: { boolean: {} } },
+            { name: "show_ticker", selector: { boolean: {} } },
+            { name: "show_target_picker", selector: { boolean: {} } },
+            {
+              name: "bars",
+              selector: { number: { min: 3, max: 24, mode: "slider" } },
+            },
+          ],
+        },
+      ],
+      // ha-form falls back to the raw key when it can't resolve a translation,
+      // so labels are supplied here rather than shipping a UI full of
+      // show_target_picker.
+      computeLabel: (s: { name: string }): string =>
+        ({
+          theme: "Theme",
+          target: "Default speaker",
+          show_equalizer: "Show equalizer",
+          show_ticker: "Show ticker",
+          show_target_picker: "Show speaker picker",
+          bars: "Equalizer bars",
+        })[s.name] ?? s.name,
+    };
   }
 
   public getCardSize(): number {
@@ -618,7 +676,10 @@ export class HaRadioCard extends LitElement {
    * everything in the shadow root, including the equalizer bars.
    */
   protected override willUpdate(): void {
-    const theme = this._radio?.theme ?? "classic";
+    // Per-card theme wins; the integration's setting is the fallback, so a
+    // dashboard full of cards that never set one keeps a single global look.
+    // Empty string is the editor's "use integration default" choice.
+    const theme = this._config?.theme || this._radio?.theme || "classic";
     if (this.getAttribute("data-theme") !== theme) {
       this.setAttribute("data-theme", theme);
     }

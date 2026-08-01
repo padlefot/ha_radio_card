@@ -75,13 +75,13 @@
       platform: "cast", supports_volume: true, is_group: false },
   ];
 
-  const makeHass = (theme, playing) => ({
+  const makeHass = (_theme, playing) => ({
     language: "en",
     states: {
       "select.ha_radio_station": {
         entity_id: "select.ha_radio_station",
         state: "NRK Jazz",
-        attributes: { options: STATIONS.map((s) => s.name), theme },
+        attributes: { options: STATIONS.map((s) => s.name), theme: "classic" },
       },
       "media_player.tre_stuer_4": {
         entity_id: "media_player.tre_stuer_4",
@@ -95,7 +95,7 @@
     },
     callService: async () => {},
     callWS: async () => ({
-      version: "0.3.0", ready: true, theme, default_volume: 0.35,
+      version: "0.5.0", ready: true, theme: "classic", default_volume: 0.35,
       stations: STATIONS, targets: TARGETS,
       current_station: "NRK Jazz",
       current_target: "media_player.tre_stuer_4",
@@ -127,7 +127,9 @@
       tag.className = "tag";
       tag.textContent = playing ? "playing" : "stopped";
       const card = document.createElement("ha-radio-card");
-      card.setConfig({ type: "custom:ha-radio-card" });
+      // Integration stub always reports "classic" (see makeHass below), so a
+      // card that renders as anything else proves the per-card option wins.
+      card.setConfig({ type: "custom:ha-radio-card", theme });
       card.hass = makeHass(theme, playing);
       pair.append(tag, card);
     }

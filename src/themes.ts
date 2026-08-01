@@ -19,6 +19,29 @@ import { css } from "lit";
  * Per-theme variation goes through tokens (`--rad-eq-anim`, `--rad-bar-period`,
  * …) so there is ONE animation code path rather than ten.
  */
+/**
+ * The theme list, in the order it is offered in the card editor.
+ *
+ * Kept next to the CSS it names so the two cannot drift: a theme added below
+ * without a matching `:host([data-theme=…])` block would silently render as
+ * Classic. The same list exists in the integration (const.py THEMES), which is
+ * unavoidable — the card must be able to build its editor without a round trip
+ * — so any new theme has to be added in both places.
+ */
+export const THEME_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
+  { value: "", label: "Use integration default" },
+  { value: "classic", label: "Classic" },
+  { value: "retro", label: "Retro" },
+  { value: "eighties", label: "80s" },
+  { value: "spaceage", label: "Space Age" },
+  { value: "transparent", label: "Transparent" },
+  { value: "transparent_dark", label: "Transparent Dark" },
+  { value: "ancient", label: "Ancient" },
+  { value: "steampunk", label: "Steampunk" },
+  { value: "tropical", label: "Tropical" },
+  { value: "arctic", label: "Arctic" },
+];
+
 export const themeStyles = css`
   :host {
     /* Classic — inherits the user's HA theme so it fits any dashboard. */

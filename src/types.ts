@@ -33,8 +33,13 @@ export interface LovelaceCardConfig {
   [key: string]: unknown;
 }
 
-/** Card-level options. Note `theme` is NOT here — it comes from the integration. */
+/** Card-level options. */
 export interface HaRadioCardConfig extends LovelaceCardConfig {
+  /**
+   * Per-card theme. Unset (or "") falls back to the integration's setting, so
+   * a dashboard that never touches this keeps one global look.
+   */
+  theme?: string;
   /** Pre-select a target so the card opens ready to play. */
   target?: string;
   /** Number of equalizer bars. */

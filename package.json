@@ -1,6 +1,6 @@
 {
   "name": "ha-radio-card",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Themed internet radio card for Home Assistant, companion to the ha_radio integration",
   "private": true,
   "type": "module",
